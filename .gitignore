@@ -1,3 +1,6 @@
+# Editor specific dot files
+.idea
+
 # Compiled class file
 *.class
 

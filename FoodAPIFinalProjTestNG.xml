@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="RestAPI Suite">
+    <test name="RestAPI" verbose="100">
+        <!--<groups>
+            <run>
+                <include name="GET"/>
+                 <include name="POST"/>
+                 <include name="PUT"/>
+                 <include name="DELETE"/>
+            </run>
+        </groups>!-->
+
+        <classes>
+            <class name="listeners.PostRequestForMealPlan">
+                <methods>
+                    <include name="createPostObject"/>
+                    <include name="checkAvailabilityOfIngredients"/>
+                    <include name="getSimilarRecipe"/>
+                    <include name="createShoppingList"/>
+                    <include name="winePairing"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>
