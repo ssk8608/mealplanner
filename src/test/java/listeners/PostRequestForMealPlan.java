@@ -21,19 +21,6 @@ public class PostRequestForMealPlan extends TestBase{
    ArrayList ingredientNotAvailableRecipeIDList = new ArrayList();
    ArrayList shoppingList = new ArrayList();
 
-
-    /*public void callMethod() throws Exception{
-         try{
-            createPostObject();
-         }
-         catch(Exception e){
-
-            e.printStackTrace();
-
-         }
-
-    }*/
-
    /*------Creating the request object for meal planner and posting the request-----*/
     @Test
     public void createPostObject() throws Exception {
@@ -251,7 +238,7 @@ public class PostRequestForMealPlan extends TestBase{
 
       /*---------- Add an item to the current shopping list of a user ------------*/   // shoppingList.size()
 
-      for(int m=0;m<2;m++) {
+      for(int m=0;m<shoppingList.size();m++) {
          String ing = shoppingList.get(m).toString();
          shop.setItem(ing);
          shop.setAsile("");
@@ -279,7 +266,7 @@ public class PostRequestForMealPlan extends TestBase{
    /*----------Checking for Wine Pairing for Saturday dinner--------------*/
    @Test
    public void winePairing(){
-      String url = "https://api.spoonacular.com/recipes/" + dinner_id + "/information?includeNutrition=false";
+      String url = "https://api.spoonacular.com/recipes/"+dinner_id+"/information?includeNutrition=false";
       Response response = getRequest(url);
       //response.then().log().body();
       JsonPath jsonPathEvaluator = response.jsonPath();
