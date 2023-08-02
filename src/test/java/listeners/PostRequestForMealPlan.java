@@ -6,6 +6,8 @@ import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import org.testng.asserts.SoftAssert;
+
 import java.util.*;
 import static io.restassured.RestAssured.baseURI;
 import static io.restassured.RestAssured.given;
@@ -13,20 +15,24 @@ import static utilities.ReadDataFromExcelFile.readExcel;
 
 public class PostRequestForMealPlan extends TestBase{
 
+   private Response response;
    public static List<MealPlan> weekList = new ArrayList<>();
    public static ArrayList IDList= new ArrayList();
+   public static ArrayList ingList = new ArrayList();
+   public static ArrayList ingredientNameList = new ArrayList();
    int dinner_id;
    String day,dinner_recipe;
    float budgetAmount;
    ArrayList ingredientNotAvailableRecipeIDList = new ArrayList();
    ArrayList shoppingList = new ArrayList();
+   SoftAssert softAssert = new SoftAssert();
 
    /*------Creating the request object for meal planner and posting the request-----*/
-    @Test
-    public void createPostObject() throws Exception {
+    @Test(priority =1)
+    public void createMealPlanner() throws Exception {
 
        Object[][] mealDetails  ;
-       mealDetails = readExcel("src/test/resources/datafiles", "mealdetails.xlsx", "Sheet1");
+       mealDetails = readExcel(excelFilePath, "mealdetails.xlsx", "Sheet1");
        System.out.println("mealDetails length : "+mealDetails.length);
        for(int i=0;i<mealDetails.length;i++) {
 
@@ -111,17 +117,15 @@ public class PostRequestForMealPlan extends TestBase{
        String postObject =GSONtoJSON.convertTOJSON(weekPlan);    // to convert java object to JSON using GSON library.
        //System.out.println("JSON body of post request: \n"+postObject);
 
-       Response response = postRequest(baseURI,postObject);   //method to post the request.
+       response = postRequest(baseURI,postObject);   //method to post the request.
        //response.then().log().body();
        Assert.assertEquals(response.statusCode(),200);
-
-       /*------Handling the response body to achieve the requirements.-----*/
-       checkNutrientLimits(response);
 
    }
 
    /*------Checking nutrient limits for the day and the whole week-----*/
-   public void checkNutrientLimits(Response response) throws Exception {
+   @Test(dependsOnMethods = "createMealPlanner",priority =2)
+   public void checkNutrientWithinLimits() throws Exception {
 
       JsonPath jsonPathEvaluator = response.jsonPath();
       String planStatus = jsonPathEvaluator.get("status");
@@ -138,7 +142,7 @@ public class PostRequestForMealPlan extends TestBase{
       LinkedHashMap<String,Object> nut;
       float totalCalories=0;
       Object[][] calorieDetails  ;
-      calorieDetails = readExcel("src/test/resources/datafiles", "mealdetails.xlsx", "Sheet2");
+      calorieDetails = readExcel(excelFilePath, "mealdetails.xlsx", "Sheet2");
       HashMap<String,String> calorieDetailsData;
       calorieDetailsData = (HashMap<String, String>) calorieDetails[0][0];
       float calPerDay= Float.parseFloat(calorieDetailsData.get("CaloriesPerDay"));
@@ -155,30 +159,28 @@ public class PostRequestForMealPlan extends TestBase{
                float amount = (float) detailsOfNutrient.get("amount");
                //int percentOfDailyNeeds = (int) detailsOfNutrient.get("percentOfDailyNeeds");
                totalCalories = totalCalories + amount;
-               //System.out.println("Day "+(i+1)+" : Calories :\n name : "+nameOfNutrient+"\n amount :"+amount+"\n percentOfDailyNeeds: "+percentOfDailyNeeds);
+
                System.out.println("\nTotal calories consumed for the day " + (i + 1) + " : " + amount);
-               if (amount <= calPerDay) {
-                  System.out.println("Calorie for the day is within the limit!!!");
-               } else {
-                  System.out.println("Calorie for the day is beyond the limit!!!");
-               }
+               softAssert.assertTrue((amount <= calPerDay),"Calorie for the day is beyond the limit!!!");  // If the assertion fails, the assertion message will be displayed.
+               //System.out.println("Calorie for the day is within the limit!!!");
+
             }
          }
       }
       System.out.println("\nTotal calories consumed for the week: "+totalCalories);
-      Assert.assertTrue(totalCalories<=calPerWeek);
+      softAssert.assertTrue((totalCalories<=calPerWeek),"Calorie for the week is beyond the limit!!!");  // If the assertion fails, the assertion message will be displayed.
       System.out.println("Calorie for the week is within the limit!!!");
-
    }
 
-   @Test
+   @Test(priority =3)
    public void checkAvailabilityOfIngredients() throws Exception {
+
+      boolean flag = true;
 
       /*----------Fetching Ingredients available from the Excel--------------*/
 
       Object[][] ingredientDetails;
-      ingredientDetails = readExcel("src/test/resources/datafiles", "mealdetails.xlsx", "Sheet3");
-      ArrayList ingList = new ArrayList();
+      ingredientDetails = readExcel(excelFilePath, "mealdetails.xlsx", "Sheet3");
 
       int j = 0;
       while (j < ingredientDetails.length) {
@@ -199,24 +201,28 @@ public class PostRequestForMealPlan extends TestBase{
          Response response = getRequest(url);
          //response.then().log().body();
          JsonPath jsonPathEvaluator = response.jsonPath();
-         ArrayList ingredientNameList = (ArrayList) jsonPathEvaluator.get("ingredients.name");
+         ingredientNameList = (ArrayList) jsonPathEvaluator.get("ingredients.name");
          //System.out.println("Ingredients List for Recipe ID : " + id + " are : " + ingredientNameList);
 
          /*----------Checking Ingredients and adding it to Shopping list--------------*/
 
          for (Object str : ingredientNameList) {
-           // if ((!ingList.contains(str)) && (!shoppingList.contains(str))) {
+            // if ((!ingList.contains(str)) && (!shoppingList.contains(str))) {
             if ((ingList.contains(str)==false) && (shoppingList.contains(str)==false)) {
+               flag = false;
                shoppingList.add(str);
                ingredientNotAvailableRecipeIDList.add(id);
             }
          }
          i++;
       }
+      System.out.println("Flag value: "+flag);
+      softAssert.assertEquals(flag,false,"All ingredients are available. Shopping list is not created.");  // If the assertion fails, the assertion message will be displayed.
    }
 
    /*----------Fetching alternative recipes for those ingredients not available using GET request --------------*/
-   @Test
+
+   @Test(priority =4)
    public void getSimilarRecipe(){
       System.out.println("\nIngredient Not Available Recipe ID List : "+ingredientNotAvailableRecipeIDList);
       System.out.println("\nSize of the list : "+ingredientNotAvailableRecipeIDList.size());
@@ -226,12 +232,14 @@ public class PostRequestForMealPlan extends TestBase{
          String url = "https://api.spoonacular.com/recipes/"+id+"/similar";
          Response response = getRequest(url);
          response.then().log().body();
+         softAssert.assertEquals(response.getStatusCode(),200,"Similar recipes are not found for some recipe for which ingredient not available.");  // If the assertion fails, the assertion message will be displayed.
       }
    }
 
    /*----------Adding unavailable ingredients to the shopping list--------------*/
-   @Test
+   @Test(priority =5)
    public void createShoppingList(){
+
       System.out.println("\nShopping list: " + shoppingList + "\nShopping list size: " + shoppingList.size());
       String url = "https://api.spoonacular.com/mealplanner/"+UserName+"/shopping-list/items?hash="+hash;
       ShoppingList shop = new ShoppingList();
@@ -249,22 +257,20 @@ public class PostRequestForMealPlan extends TestBase{
       System.out.println("\nShopping list for the week: \n");
       Response response = getRequest("https://api.spoonacular.com/mealplanner/"+UserName+"/shopping-list?hash="+hash);
       response.then().log().body();
+      softAssert.assertEquals(response.getStatusCode(),200,"Shopping list is not generated.");  // If the assertion fails, the assertion message will be displayed.
+      System.out.println("Unavailable ingredients are added to the shopping List.");
 
       /*----------Checking if shopping cost is within budget amount--------------*/
 
       JsonPath jsonPathEvaluator = response.jsonPath();
       float cost = jsonPathEvaluator.get("cost");
       System.out.println("\nTotal cost expected for shopping is :"+cost+"\nBudget Amount : "+budgetAmount);
-      if (cost>budgetAmount){
-         System.out.println("Shopping cost exceeds budget amount.");
-      }
-      else{
-         System.out.println("Shopping cost is within budget amount.");
-      }
+      softAssert.assertTrue(cost<=budgetAmount,"Shopping cost exceeds budget amount.");  // If the assertion fails, the assertion message will be displayed.
+      System.out.println("Shopping cost within budget amount.");
    }
 
    /*----------Checking for Wine Pairing for Saturday dinner--------------*/
-   @Test
+   @Test(priority =6)
    public void winePairing(){
       String url = "https://api.spoonacular.com/recipes/"+dinner_id+"/information?includeNutrition=false";
       Response response = getRequest(url);
@@ -277,12 +283,13 @@ public class PostRequestForMealPlan extends TestBase{
       System.out.println("Recipe Name : "+dinner_recipe);
       System.out.println("Wines that can be paired : "+ pairedWines);
       System.out.println("Description :\n"+pairingText);
+      softAssert.assertNotNull(pairedWines,"Wine is not paired for the Saturday party meal.");  // If the assertion fails, the assertion message will be displayed.
    }
 
     public Response postRequest(String url, String postRequestBody){
         Response response = given()
                 .contentType(ContentType.JSON)
-                .queryParam("apiKey","3d3a9a824d5041a98bd90e22bbd0e01b")
+                .queryParam("apiKey",apiKey)
                 .and()
                 .body(postRequestBody)
                 .when()
@@ -295,7 +302,7 @@ public class PostRequestForMealPlan extends TestBase{
    public Response getRequest(String url){
       Response response = given()
               .contentType(ContentType.JSON)
-              .queryParam("apiKey","3d3a9a824d5041a98bd90e22bbd0e01b")
+              .queryParam("apiKey",apiKey)
               .when()
               .get(url)
               .then()

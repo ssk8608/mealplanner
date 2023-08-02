@@ -5,7 +5,8 @@
         <classes>
             <class name="listeners.PostRequestForMealPlan">
                 <methods>
-                    <include name="createPostObject"/>
+                    <include name="createMealPlanner"/>
+                    <include name="checkNutrientWithinLimits"/>
                     <include name="checkAvailabilityOfIngredients"/>
                     <include name="getSimilarRecipe"/>
                     <include name="createShoppingList"/>

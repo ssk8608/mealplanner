@@ -6,7 +6,7 @@ import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.Test;
+import utilities.ReadDataFromPropertyFile;
 
 import static io.restassured.RestAssured.baseURI;
 import static io.restassured.RestAssured.given;
@@ -16,6 +16,8 @@ public class TestBase {
     public static String UserName;
     public static String hash;
     public static String Password;
+    public static String apiKey = ReadDataFromPropertyFile.getProperty("apiKey");
+    public static String excelFilePath = ReadDataFromPropertyFile.getProperty("excelFilePath");
 
     @BeforeSuite
 
@@ -32,7 +34,7 @@ public class TestBase {
 
         Response response = given()
                 .contentType(ContentType.JSON)
-                .queryParam("apiKey","3d3a9a824d5041a98bd90e22bbd0e01b")
+                .queryParam("apiKey",apiKey)
                 .and()
                 .body(postObject)
                 .when()
